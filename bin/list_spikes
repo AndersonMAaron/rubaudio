@@ -1,10 +1,16 @@
 #!/usr/bin/env ruby
 
+###############################################################################
+## Queries video files for spikes in the audio lasting longer than MIN_SPIKE_DURATION
+###############################################################################
+
 require 'logger'
 require 'optparse'
 require 'pp'
 
+MIN_SPIKE_DURATION = 1 #second(s)
 @options = { :log_level => 'info' }
+
 OptionParser.new do |opts|
   opts.banner = [
     "usage: #{File.basename($0)}",
@@ -24,7 +30,6 @@ OptionParser.new do |opts|
   opts.on('-h', '--help', 'flag to display help') do
     abort(opts)
   end
-
 end.parse!
 
 def fail(msg = '')
@@ -36,24 +41,13 @@ def fail(msg = '')
   abort(notes.join("\n"))
 end
 
-# Basic input sanitation
 fail("Need to specify --video-directory (-d)") unless @options[:video_directory]
 fail("--video-directory (-d) '#{@options[:video_directory]}' not found") unless File.exist?(@options[:video_directory])
 
-## NOTE: In static languages like C#, (normally) variables are declared at the top of a file/class,
-## followed by methods, followed by functionality. That is done because in a compiled static langauge,
-## all of the variables and methods are loaded into memory once a file/class is included. The compiler
-## needs to know about everything before execution; this is how it can produce syntax errors at compile time.
-##
-## In dynamic languages, we do not have this restriction and can make some optimizations as a result. Here,
-## I am not creating the @logger variable (or anything else) until we have already performed error checking on user input.
-## This way, we are not filling memory until we are sure we can continue execution. It's a very small optimization,
-## but this is a mental context switch when working in dynamic languages to keep in mind.
 @logger = Logger.new(STDERR)
 log_level = @options[:log_level]
 @logger.formatter = proc { |severity, datetime, progname, msg| "#{datetime. strftime('%H:%M:%S.%L')} #{"%-5s" % severity} [#{progname}] #{msg}\n" }
 @script_name = File.basename($0, ".rb")
-###############################################################################
 
 def find_spikes(video_file)
   spikes = []
@@ -63,9 +57,9 @@ end
 
 results = {}
 Dir.glob("#{@options[:video_directory]}/*").each do |video_file|
-  results[File.basename(video_file)] = find_spikes(video_file)
+  @logger.debug(@script_name) { "checking for audio spikes in '#{video_file}'" }
+  results[video_file] = find_spikes(video_file)
 end
 
-# Pretty print
-pp results
-
+@logger.info(@script_name) { "Spikes: \n#{pp results}" }
+@logger.info(@script_name) { 'done' }

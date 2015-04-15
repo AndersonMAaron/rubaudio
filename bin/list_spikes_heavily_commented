@@ -1,0 +1,93 @@
+#!/usr/bin/env ruby
+
+###############################################################################
+## Queries video files for spikes in the audio lasting longer than MIN_SPIKE_DURATION
+###############################################################################
+
+## Gems that this script depends on
+require 'logger'
+require 'optparse'
+require 'pp'
+
+MIN_SPIKE_DURATION = 1 #second(s)
+@options = { :log_level => 'info' }
+
+OptionParser.new do |opts|
+  opts.banner = [
+    "usage: #{File.basename($0)}",
+    "-d <dir>",
+    "[-l <log-level>]",
+    "[-h]",
+  ].join(' ')
+
+  opts.on( '-d', '--video-directory DIRNAME', "Directory to write the RPMs" ) do |dir|
+    @options[:video_directory] = File.expand_path(dir)
+  end
+
+  opts.on('-l', '--log-level <level>', 'log level verbosity (fatal, error, warn, info, debug). Defaults to error.') do |log_level|
+    @options[:log_level] = log_level
+  end
+
+  opts.on('-h', '--help', 'flag to display help') do
+    abort(opts)
+  end
+end.parse!
+
+# Since we are a script with multiple inputs, we want to be able to exit the script
+# with a useful error message and print script usage.
+def fail(msg = '')
+  notes = [
+    @parser.banner,
+  ]
+  notes << msg unless msg.empty?
+
+  # 'abort' will print a message to the user and then exit 1. When a script exits with a non-zero value,
+  # that signifies there was an error.
+  abort(notes.join("\n"))
+end
+
+# Basic input sanitation. Ensure the user specified a directory and that the directory exists.
+fail("Need to specify --video-directory (-d)") unless @options[:video_directory]
+fail("--video-directory (-d) '#{@options[:video_directory]}' not found") unless File.exist?(@options[:video_directory])
+
+## NOTE: In static languages like C#, (normally) variables are declared at the top of a file/class,
+## followed by methods, followed by functionality. That is done because in a compiled static langauge,
+## all of the variables and methods are loaded into memory once a file/class is included. The compiler
+## needs to know about everything before execution; this is how it can produce syntax errors at compile time.
+##
+## In dynamic languages, we do not have this restriction and can make some optimizations as a result. Here,
+## I am not creating the @logger variable (or anything else) until we have already performed error checking on user input.
+## This way, we are not filling memory until we are sure we can continue execution. It's a very small optimization,
+## but it's worth keeping in mind when working with dynamic languages.
+@logger = Logger.new(STDERR)
+log_level = @options[:log_level]
+@logger.formatter = proc { |severity, datetime, progname, msg| "#{datetime. strftime('%H:%M:%S.%L')} #{"%-5s" % severity} [#{progname}] #{msg}\n" }
+@script_name = File.basename($0, ".rb")
+###############################################################################
+
+def find_spikes(video_file)
+  ## NOTE: We want to store information about audio spikes in some sort of data structure.
+  ## Since all we really need to know are the start and stop times of audio spikes,
+  ## we don't need to create a class; an array will do just fine.
+  spikes = [] # creates an empty array (http://ruby-doc.org/core-2.2.0/Array.html)
+
+  # TODO populate 'spikes' array
+
+  ## NOTE: In ruby, all methods have a return value. The evaluation of the last line of
+  ## the method is returned, so we don't need to say 'return spikes', we
+  ## can just say 'spikes' and the var will be returned. We can still specify 'return spikes', but
+  ## it is ruby convention to only specify 'return X' when we are returning a value early in the method.
+  spikes
+end
+
+results = {} # This creates an empty hash (http://ruby-doc.org/core-2.2.1/Hash.html)
+# Loop through all the video files in the specified directory and check for audio spikes
+Dir.glob("#{@options[:video_directory]}/*").each do |video_file|
+  @logger.debug(@script_name) { "checking for audio spikes in '#{video_file}'" }
+  results[video_file] = find_spikes(video_file)
+end
+
+# Pretty print the findings.
+@logger.info(@script_name) { "Spikes: \n#{pp results}" }
+@logger.info(@script_name) { 'done' }
+
